@@ -1,0 +1,94 @@
+name: Commit Zip or Build Scaffold
+on:
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: "Optional: signed/public URL to a zip bundle; if blank, build scaffold."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure git user
+        run: |
+          git config user.name "blinkwell-bot"
+          git config user.email "actions@users.noreply.github.com"
+
+      # ---------- ZIP MODE ----------
+      - name: Download bundle if zip_url provided
+        if: ${{ github.event.inputs.zip_url != '' }}
+        run: |
+          set -e
+          curl -fL "${{ github.event.inputs.zip_url }}" -o /tmp/bundle.zip
+          mkdir -p /tmp/unzip && unzip -q /tmp/bundle.zip -d /tmp/unzip
+          rsync -a --delete --exclude '.git' --exclude 'node_modules' /tmp/unzip/ ./
+
+      # ---------- BUILDER MODE ----------
+      - name: Setup Node for builder mode
+        if: ${{ github.event.inputs.zip_url == '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build BlinkWell scaffold (monorepo + Next.js)
+        if: ${{ github.event.inputs.zip_url == '' }}
+        run: |
+          set -e
+          mkdir -p apps agents tools sim/experiments sim/schemas infra ci docs
+
+          # Next.js app
+          npx --yes create-next-app@latest apps/web \
+            --ts --eslint --tailwind --app --src-dir --import-alias "@/*" --use-npm --no-git
+
+          # Root package.json (workspaces)
+          cat > package.json <<'PKG'
+          {
+            "name": "blinkwell-monorepo",
+            "private": true,
+            "workspaces": ["apps/*"],
+            "scripts": {
+              "build": "npm --workspace apps/web run build",
+              "dev": "npm --workspace apps/web run dev",
+              "lint": "npm --workspace apps/web run lint"
+            }
+          }
+          PKG
+
+          # Minimal readmes and placeholders
+          cat > agents/README.md <<'TXT'
+          # Agents
+          Domain agents, evaluators, and judges live here.
+          TXT
+          cat > tools/README.md <<'TXT'
+          # Tools
+          Finance calc, compliance checks, docker lints, etc.
+          TXT
+          cat > sim/experiments/README.md <<'TXT'
+          # Experiments
+          Tournament configs for Agentic Dr-Strange.
+          TXT
+          cat > ci/README.md <<'TXT'
+          # CI
+          Gauntlet checks and pipelines.
+          TXT
+
+          echo "node_modules" > .gitignore
+
+      # ---------- COMMIT ----------
+      - name: Commit changes
+        run: |
+          set -e
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Automated scaffold commit (zip or builder)"
+            git push
+          fi
