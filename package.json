@@ -1,0 +1,10 @@
+{
+  "name": "blinkwell-monorepo",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "build": "npm --workspace apps/web run build",
+    "dev": "npm --workspace apps/web run dev",
+    "lint": "npm --workspace apps/web run lint"
+  }
+}
