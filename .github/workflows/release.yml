@@ -14,31 +14,25 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
       - name: Install dependencies
-        run: npm --workspace apps/web ci
-
-      - name: Build web app
+        run: npm ci --workspace apps/web
+      - name: Build web
         run: npm --workspace apps/web run build
 
-      - name: Deploy to Vercel
-      
-          uses: amondnet/vercel-action@v25
-          with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: apps/web
-          alias-domains: blinkwell.vercel.app
-
-      - name: Release note
-        run: |
-          echo "Deployment complete or skipped (if no Vercel token)."
+  deploy:
+    needs: build
+    uses: BLAKE0709/atlas-pipeline-os/.github/workflows/reusable-release.yml@main
+    with:
+      working_directory: apps/web
+      alias_domains: blinkwell.vercel.app
+    secrets:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
