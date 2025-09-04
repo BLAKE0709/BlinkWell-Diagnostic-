@@ -14,7 +14,13 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    uses: BLAKE0709/atlas-pipeline-os/.github/workflows/reusable-test.yml@main
+    with:
+      working_directory: apps/web
+
   build:
+    needs: test
     uses: BLAKE0709/atlas-pipeline-os/.github/workflows/reusable-build.yml@main
     with:
       working_directory: apps/web
